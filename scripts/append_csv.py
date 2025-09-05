@@ -4,7 +4,7 @@ import io
 from datetime import datetime, timezone
 
 from azure.core.exceptions import ResourceExistsError, ResourceNotFoundError
-from azure.storage.blob import BlobServiceClient, AppendBlobClient
+from azure.storage.blob import BlobServiceClient
 from azure.identity import DefaultAzureCredential
 
 CONTAINER = os.getenv("AZURE_STORAGE_CONTAINER", "atlas")
@@ -65,3 +65,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
