@@ -21,7 +21,7 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           #remove legacy/conflicting packages if present
-          pip uninstall -y azure-storage azure-storage-blob || true
+          #pip uninstall -y azure-storage-blob || true
           pip install azure-storage-blob
           pip install azure-identity
           pip install azure-core
