@@ -27,10 +27,10 @@ jobs:
       - name: Verify Azure SDK import
         run: |
           python - <<'PY'
-            import sys
-            print(sys.version)
-            from azure.storage.blob import AppendBlobClient, BlobServiceClient
-            print("azure-storage-blob import OK")
+          import sys
+          print(sys.version)
+          from azure.storage.blob import AppendBlobClient, BlobServiceClient
+          print("azure-storage-blob import OK")
           PY
 
       - name: Run appender
