@@ -33,7 +33,7 @@ jobs:
           python - <<'PY'
           import sys
           print(sys.version)
-          from azure.storage.blob import AppendBlobClient, BlobServiceClient
+          from azure.storage.blob import BlobServiceClient
           print("azure-storage-blob import OK")
           PY
 
