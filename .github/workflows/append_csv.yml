@@ -1,0 +1,39 @@
+name: Append CSV to Azure Blob
+
+on:
+  workflow_dispatch: {}
+  # schedule:
+  #   - cron: "0 * * * *"  # every hour (optional)
+
+jobs:
+  run-appender:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run appender
+        env:
+          # EITHER pass a connection string (recommended for simplicity)...
+          AZURE_STORAGE_CONNECTION_STRING: ${{ secrets.AZURE_STORAGE_CONNECTION_STRING }}
+
+          # ...or use OIDC (see alternative block below). For connection string path,
+          # the two below are not required:
+          # AZURE_STORAGE_ACCOUNT: ${{ secrets.AZURE_STORAGE_ACCOUNT }}
+
+          AZURE_STORAGE_CONTAINER: atlas
+          BLOB_NAME: data.csv
+          VALUE1: "123"
+          VALUE2: "from-github-actions"
+        run: |
+          python scripts/append_csv.py
