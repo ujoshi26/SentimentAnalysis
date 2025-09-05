@@ -25,6 +25,7 @@ jobs:
           pip install azure-storage-blob
           pip install azure-identity
           pip install azure-core
+          pip freeze
           #pip install -r requirements.txt
 
       - name: Verify Azure SDK import
