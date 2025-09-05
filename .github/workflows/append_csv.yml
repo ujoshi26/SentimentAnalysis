@@ -24,6 +24,15 @@ jobs:
           pip uninstall -y azure azure-storage azure-storage-blob || true
           pip install -r requirements.txt
 
+      - name: Verify Azure SDK import
+        run: |
+          python - <<'PY'
+            import sys
+            print(sys.version)
+            from azure.storage.blob import AppendBlobClient, BlobServiceClient
+            print("azure-storage-blob import OK")
+          PY
+
       - name: Run appender
         env:
           # EITHER pass a connection string (recommended for simplicity)...
