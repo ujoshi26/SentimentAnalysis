@@ -14,9 +14,7 @@ def get_clients():
     conn_str = os.getenv("AZURE_STORAGE_CONNECTION_STRING")
     if conn_str:
         bsc = BlobServiceClient.from_connection_string(conn_str)
-        append_client = AppendBlobClient.from_connection_string(
-            conn_str, container_name=CONTAINER, blob_name=BLOB_NAME
-        )
+        append_client = bsc.get_blob_client(container_name=CONTAINER,blob_name=BLOB_NAME)
         return bsc, append_client
 
     # OIDC / Workload Identity path
@@ -24,7 +22,7 @@ def get_clients():
     account_url = f"https://{account}.blob.core.windows.net"
     cred = DefaultAzureCredential(exclude_shared_token_cache_credential=True)
     bsc = BlobServiceClient(account_url=account_url, credential=cred)
-    append_client = AppendBlobClient(account_url=account_url,
+    append_client = bsc.get_blob_client(account_url=account_url,
                                      container_name=CONTAINER,
                                      blob_name=BLOB_NAME,
                                      credential=cred)
@@ -65,5 +63,6 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
