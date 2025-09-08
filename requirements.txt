@@ -1,6 +1,6 @@
 azure-core
 azure-identity
-azure-storage-blob==12.19.0
+azure-storage-blob
 
 
 
