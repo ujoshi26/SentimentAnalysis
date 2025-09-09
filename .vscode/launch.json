@@ -1,0 +1,34 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Python: Temperature Capture",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/scripts/append_csv.py",
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "envFile": "${workspaceFolder}/.env",
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}"
+            },
+            "stopOnEntry": false,
+            "python": "${command:python.interpreterPath}",
+            "args": []
+        },
+        {
+            "name": "Python: Test Environment",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/scripts/test_env.py",
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "envFile": "${workspaceFolder}/.env",
+            "stopOnEntry": false,
+            "python": "${command:python.interpreterPath}"
+        }
+    ]
+}

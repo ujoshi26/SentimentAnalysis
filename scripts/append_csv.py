@@ -1,68 +1,152 @@
+#!/usr/bin/env python3
+"""
+Atlanta Temperature Capture Script
+Fetches current temperature for Atlanta and uploads to Azure Blob Storage
+"""
+
 import os
-import csv
-import io
+import sys
+from pathlib import Path
+import json
+import requests
 from datetime import datetime, timezone
-#Modified to check the github sync process...
-from azure.core.exceptions import ResourceExistsError, ResourceNotFoundError
 from azure.storage.blob import BlobServiceClient
-from azure.identity import DefaultAzureCredential
+import logging
 
-CONTAINER = os.getenv("AZURE_STORAGE_CONTAINER", "atlas")
-BLOB_NAME = os.getenv("BLOB_NAME", "data.csv")
+# Configure logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
 
-def get_clients():
-    conn_str = os.getenv("AZURE_STORAGE_CONNECTION_STRING")
-    if conn_str:
-        bsc = BlobServiceClient.from_connection_string(conn_str)
-        append_client = bsc.get_blob_client(container_name=CONTAINER,blob_name=BLOB_NAME)
-        return bsc, append_client
 
-    # OIDC / Workload Identity path
-    account = os.environ["AZURE_STORAGE_ACCOUNT"]  # required for account_url path
-    account_url = f"https://{account}.blob.core.windows.net"
-    cred = DefaultAzureCredential(exclude_shared_token_cache_credential=True)
-    bsc = BlobServiceClient(account_url=account_url, credential=cred)
-    append_client = bsc.get_blob_client(account_url=account_url,
-                                     container_name=CONTAINER,
-                                     blob_name=BLOB_NAME,
-                                     credential=cred)
-    return bsc, append_client
+def check_env():
+    # Check if .env file exists
+    env_file = Path(".env")
+    if env_file.exists():
+        print(f"✅ .env file found at: {env_file.absolute()}")
+        print(f"📄 .env file size: {env_file.stat().st_size} bytes")
+    else:
+        print("❌ .env file NOT found!")
+        print("💡 Make sure .env is in the same directory as this script")
+
+    # Try loading dotenv
+    try:
+        from dotenv import load_dotenv
+        print("✅ python-dotenv installed successfully")
+        
+        # Load .env file
+        result = load_dotenv()
+        print(f"📋 load_dotenv() result: {result}")
+    except ImportError:
+        print("❌ python-dotenv NOT installed!")
+        print("💡 Install with: pip install python-dotenv")
+        sys.exit(1)
+        
+def get_atlanta_temperature():
+    """Fetch current temperature for Atlanta using OpenWeatherMap API"""
+    api_key = os.getenv('OPENWEATHER_API_KEY')
+    if not api_key:
+        raise ValueError("OPENWEATHER_API_KEY environment variable not set")
+    
+    # Atlanta coordinates
+    lat, lon = 33.7490, -84.3880
+    
+    url = f"https://api.openweathermap.org/data/2.5/weather"
+    params = {
+        'lat': lat,
+        'lon': lon,
+        'appid': api_key,
+        'units': 'imperial'  # Fahrenheit
+    }
+    
+    try:
+        response = requests.get(url, params=params, timeout=10)
+        response.raise_for_status()
+        
+        data = response.json()
+        
+        temperature_data = {
+            'timestamp': datetime.now(timezone.utc).isoformat(),
+            'city': 'Atlanta',
+            'state': 'GA',
+            'temperature_f': data['main']['temp'],
+            'feels_like_f': data['main']['feels_like'],
+            'humidity': data['main']['humidity'],
+            'description': data['weather'][0]['description'],
+            'pressure': data['main']['pressure'],
+            'visibility': data.get('visibility', 'N/A'),
+            'wind_speed': data.get('wind', {}).get('speed', 'N/A'),
+            'wind_direction': data.get('wind', {}).get('deg', 'N/A')
+        }
+        
+        logger.info(f"Temperature captured: {temperature_data['temperature_f']}°F")
+        return temperature_data
+        
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Error fetching weather data: {e}")
+        raise
+    except KeyError as e:
+        logger.error(f"Unexpected API response format: {e}")
+        raise
+
+def upload_to_azure_blob(temperature_data):
+    """Upload temperature data to Azure Blob Storage"""
+    connection_string = os.getenv('AZURE_STORAGE_CONNECTION_STRING')
+    container_name = os.getenv('AZURE_CONTAINER_NAME')
+    
+    if not connection_string:
+        raise ValueError("AZURE_STORAGE_CONNECTION_STRING environment variable not set")
+    if not container_name:
+        raise ValueError("AZURE_CONTAINER_NAME environment variable not set")
+    
+    try:
+        # Create blob service client
+        blob_service_client = BlobServiceClient.from_connection_string(connection_string)
+        
+        # Generate blob name with timestamp
+        timestamp = temperature_data['timestamp'].replace(':', '-').replace('.', '-')
+        blob_name = f"atlanta-temperature/{timestamp}.json"
+        
+        # Convert data to JSON
+        json_data = json.dumps(temperature_data, indent=2)
+        
+        # Upload to blob storage
+        blob_client = blob_service_client.get_blob_client(
+            container=container_name, 
+            blob=blob_name
+        )
+        
+        blob_client.upload_blob(
+            json_data, 
+            overwrite=True,
+            content_type='application/json'
+        )
+        
+        logger.info(f"Data uploaded to blob: {blob_name}")
+        return blob_name
+        
+    except Exception as e:
+        logger.error(f"Error uploading to Azure Blob Storage: {e}")
+        raise
 
 def main():
-    bsc, append_client = get_clients()
-    container_client = bsc.get_container_client(CONTAINER)
-
-    # Ensure container exists (Terraform created it, but idempotent is nice)
+    """Main function to capture temperature and upload to Azure"""
     try:
-        container_client.create_container()
-    except ResourceExistsError:
-        pass
-
-    # Create the append blob with header if missing
-    is_new = False
-    try:
-        append_client.get_blob_properties()
-    except ResourceNotFoundError:
-        append_client.create()
-        is_new = True
-
-    # Build a CSV line (example values; override with env if you like)
-    ts = datetime.now(timezone.utc).isoformat()
-    value1 = os.getenv("VALUE1", "42")
-    value2 = os.getenv("VALUE2", "hello")
-
-    sio = io.StringIO()
-    writer = csv.writer(sio, lineterminator="\n")
-    if is_new:
-        writer.writerow(["timestamp", "value1", "value2"])
-    writer.writerow([ts, value1, value2])
-    data = sio.getvalue().encode("utf-8")
-
-    append_client.append_block(data)
-    print(f"Appended to {CONTAINER}/{BLOB_NAME}")
+        check_env()
+        logger.info("Starting Atlanta temperature capture...")
+        
+        # Get temperature data
+        temperature_data = get_atlanta_temperature()
+        
+        # Upload to Azure Blob Storage
+        blob_name = upload_to_azure_blob(temperature_data)
+        
+        logger.info(f"Successfully completed temperature capture and upload")
+        logger.info(f"Temperature: {temperature_data['temperature_f']}°F")
+        logger.info(f"Blob: {blob_name}")
+        
+    except Exception as e:
+        logger.error(f"Script failed: {e}")
+        exit(1)
 
 if __name__ == "__main__":
     main()
-
-
-
